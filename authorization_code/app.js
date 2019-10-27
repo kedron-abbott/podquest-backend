@@ -12,10 +12,13 @@ var request = require('request'); // "Request" library
 var cors = require('cors');
 var querystring = require('querystring');
 var cookieParser = require('cookie-parser');
+var sessionStorage = require('sessionstorage');
 
-var client_id = 'CLIENT_ID'; // Your client id
-var client_secret = 'CLIENT_SECRET'; // Your secret
-var redirect_uri = 'REDIRECT_URI'; // Your redirect uri
+
+//Hey Matt, this is where you're going to use the environment variables
+var client_id; // Your client id
+var client_secret; // Your client secret
+var redirect_uri; // Your redirect uri
 
 /**
  * Generates a random string containing numbers and letters
@@ -41,7 +44,6 @@ app.use(express.static(__dirname + '/public'))
    .use(cookieParser());
 
 app.get('/login', function(req, res) {
-
   var state = generateRandomString(16);
   res.cookie(stateKey, state);
 
@@ -88,9 +90,12 @@ app.get('/callback', function(req, res) {
 
     request.post(authOptions, function(error, response, body) {
       if (!error && response.statusCode === 200) {
-
+        
         var access_token = body.access_token,
             refresh_token = body.refresh_token;
+        
+        sessionStorage.setItem('access_token', access_token);
+        sessionStorage.setItem('refresh_token', refresh_token);
 
         var options = {
           url: 'https://api.spotify.com/v1/me',
@@ -100,7 +105,7 @@ app.get('/callback', function(req, res) {
 
         // use the access token to access the Spotify Web API
         request.get(options, function(error, response, body) {
-          console.log(body);
+          sessionStorage.setItem('spotifyData', body);
         });
 
         // we can also pass the token to the browser to make requests from there
@@ -136,11 +141,21 @@ app.get('/refresh_token', function(req, res) {
   request.post(authOptions, function(error, response, body) {
     if (!error && response.statusCode === 200) {
       var access_token = body.access_token;
+      sessionStorage.setItem('access_token', access_token);
       res.send({
         'access_token': access_token
       });
     }
   });
+});
+
+app.get('/data', function(req, res) {
+  data = {
+    'user': sessionStorage.getItem('spotifyData'),
+    'access_token': sessionStorage.getItem('access_token'),
+    'refresh_token': sessionStorage.getItem('refresh_token')
+  }
+  res.send(data); 
 });
 
 console.log('Listening on 8888');
